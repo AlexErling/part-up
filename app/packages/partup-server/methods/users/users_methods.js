@@ -415,5 +415,11 @@ Meteor.methods({
             user.emails.unshift(primary[0]);
             Meteor.users.update(user._id, {$set: {emails: user.emails}});
         }
+    },
+
+    'users.delete': function() {
+        var user = Meteor.user();
+        console.log('deleting', user)
+        return
     }
 });
