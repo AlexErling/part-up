@@ -21,11 +21,14 @@ Template.modal_profile_settings_advanced.events({
             confirmButton: TAPi18n.__('modal-profilesettings-advanced-delete-confirm-button'),
             cancelButton: TAPi18n.__('modal-profilesettings-advanced-delete-cancel-button'),
             onConfirm: function() {
-                Meteor.call('users.delete', function(error) {
+                Meteor.call('users.delete', function(error, response) {
                     if (error) {
                         Partup.client.notify.error(error.reason);
                         return;
-                    }    
+                    }
+                    Partup.client.notify.success(TAPi18n.__('modal-profilesettings-advanced-delete-success'));
+                    Partup.client.user.logout() // Logout
+                    Intent.go({route: 'home'}); // Redirect to home
                 });
             }
         });

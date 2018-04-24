@@ -418,8 +418,27 @@ Meteor.methods({
     },
 
     'users.delete': function() {
+
         var user = Meteor.user();
+
+        if (!user) {
+            throw new Meteor.Error(401, 'unauthorized');
+        }
+
         console.log('deleting', user)
-        return
+
+        try {
+            Meteor.users.update(user._id, {$set: {
+                deletedAt: new Date()
+            }});
+            Event.emit('users.deleted', user._id);
+
+            return {
+                _id: user._id
+            }
+        } catch (error) {
+            Log.error(error);
+            throw new Meteor.Error(500, 'user_could_not_be_deleted');
+        }
     }
 });
