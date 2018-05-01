@@ -1,3 +1,5 @@
+import _ from 'lodash'
+
 Meteor.methods({
     /**
      * Update a user
@@ -425,13 +427,76 @@ Meteor.methods({
             throw new Meteor.Error(401, 'unauthorized');
         }
 
-        console.log('deleting', user)
+        console.log('deleting', user._id, user.profile.name)
 
         try {
+            // Remove all partnerships & and become a supporter
+            _.get(user, 'upperOf', []).forEach((partupId) => {
+                partup = Partups.findOne({_id: partupId})
+                // If the user is the only partner, archive first
+                if (_.isEqual(partup.uppers, [user.id])) {
+                    Meteor.call('partups.archive', partupId)
+                }
+                console.log("Unpartnering and stop supporting", partupId)
+                Meteor.call('partups.unpartner', partupId, function (err, res) {
+                    Meteor.call('partups.supporters.remove', partupId)    
+                })
+            })
+            
+            // Remove supporter from partup
+            _.get(user, 'supporterOf', []).forEach((partupId) => {
+                console.log("Unsupporting", partupId)
+                Meteor.call('partups.supporters.remove', partupId)    
+            })
+
+            // Remove from tribes
+            _.get(user, 'networks', []).forEach((networkId) => {
+                network = Networks.findOne({_id: networkId})
+                // If the user is the only member, archive first
+                if (_.isEqual(_.get(network, 'uppers', []), [user.id])) {
+                    Meteor.call('network.archive', network.slug)
+                }
+                console.log("Leaving tribe: ", networkId)
+                if (!network.isAdmin(user._id)) {
+                    Meteor.call('networks.remove_upper', network.slug, user._id)    
+                } else {
+                    Meteor.call('networks.leave', networkId)        
+                }
+            })
+            
+            // Empty out the profile
+            fieldsForDeletion = {
+                'image': undefined,
+                'description': "",
+                'tags': [],
+                'facebook_url': "",
+                'twitter_url': "",
+                'instagram_url': "",
+                'linkedin_url': "",
+                'phonenumber': "",
+                'website': "",
+                'skype': "",
+                'name': "Deleted User"
+            }
+            var userDeletedFields = Partup.transformers.profile.fromFormProfileSettings(fieldsForDeletion);
+
+            // Merge the old profile so empty fields do not get overwritten
             Meteor.users.update(user._id, {$set: {
-                deletedAt: new Date()
+                profile: userDeletedFields.profile,
+                emails: [],
+                registered_emails: [],
+                services: {},
+                logins: [],
+                flags: []
             }});
+
+            // Meteor.users.update(user._id, {$set: {
+            //     deletedAt: new Date()
+            // }});
+
             Event.emit('users.deleted', user._id);
+
+            console.log('deleted', user._id, user.profile.name)
 
             return {
                 _id: user._id

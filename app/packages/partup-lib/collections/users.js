@@ -418,6 +418,9 @@ User = function(user) {
             var name = user.profile.name || user.name;
             if (!name) return;
 
+            // If its a deleted user, show the full Deleted User
+            if (name === "Deleted User") return name
+
             if (name.match(/.*\s.*/)) {
                 return name.split(' ')[0];
             } else {
