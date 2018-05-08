@@ -208,14 +208,41 @@ Meteor.methods({
     */
     'users.admin_impersonate': function(userId) {
         check(userId, String);
-        var currentUser = Meteor.users.findOne(this.userId);
-        if (!User(currentUser).isAdmin()) {
-            return;
-        }
 
-        var impersonateUser = Meteor.users.findOne(userId);
-        if (!impersonateUser) throw new Meteor.Error(404, 'user_could_not_be_found');
-        this.setUserId(userId);
+        const currentUser = Meteor.users.findOne(this.userId);
+
+        if (User(currentUser).isAdmin()) {
+          const impersonateUser = Meteor.users.findOne(userId);
+
+          if (impersonateUser) {
+            const { impersonation } = Partup.helpers;
+
+            const date = impersonation.getLastDate(impersonateUser);
+            if (date) {
+              const timeLeft = impersonation.timeLeft(date);
+
+              if (timeLeft > 0) {
+                Meteor.setTimeout(() => {
+                  this.setUserId(currentUser._id);
+                }, timeLeft);
+
+                this.setUserId(impersonateUser._id);
+              }
+              return timeLeft;
+            } else {
+              throw new Meteor.Error(0, 'impersonation_not_activated');
+            }
+          } else {
+            throw new Meteor.Error(404, 'user_could_not_be_found');
+          }
+        }
+    },
+
+    'users.allow_impersonation'() {
+      const user = Meteor.users.findOne(this.userId);
+      if (user) {
+        Meteor.users.update(user._id, { $push: { impersonation: new Date() } });
+      }
     },
 
     /**
@@ -439,14 +466,14 @@ Meteor.methods({
                 }
                 console.log("Unpartnering and stop supporting", partupId)
                 Meteor.call('partups.unpartner', partupId, function (err, res) {
-                    Meteor.call('partups.supporters.remove', partupId)    
+                    Meteor.call('partups.supporters.remove', partupId)
                 })
             })
-            
+
             // Remove supporter from partup
             _.get(user, 'supporterOf', []).forEach((partupId) => {
                 console.log("Unsupporting", partupId)
-                Meteor.call('partups.supporters.remove', partupId)    
+                Meteor.call('partups.supporters.remove', partupId)
             })
 
             // Remove from tribes
@@ -458,12 +485,12 @@ Meteor.methods({
                 }
                 console.log("Leaving tribe: ", networkId)
                 if (!network.isAdmin(user._id)) {
-                    Meteor.call('networks.remove_upper', network.slug, user._id)    
+                    Meteor.call('networks.remove_upper', network.slug, user._id)
                 } else {
-                    Meteor.call('networks.leave', networkId)        
+                    Meteor.call('networks.leave', networkId)
                 }
             })
-            
+
             // Empty out the profile
             fieldsForDeletion = {
                 'image': undefined,

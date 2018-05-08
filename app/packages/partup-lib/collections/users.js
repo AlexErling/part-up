@@ -41,6 +41,7 @@ var getPublicUserFields = function() {
         'participation_score': 1,
         'chats': 1,
         'deactivatedAt': 1,
+        'impersonation': 1,
     };
 };
 
