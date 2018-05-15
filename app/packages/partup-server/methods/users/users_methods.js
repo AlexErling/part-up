@@ -453,16 +453,40 @@ Meteor.methods({
             _.get(user, 'networks', []).forEach((networkId) => {
                 network = Networks.findOne({_id: networkId})
                 // If the user is the only member, archive first
+                console.log("Leaving tribe: ", networkId)
+
                 if (_.isEqual(_.get(network, 'uppers', []), [user.id])) {
                     Meteor.call('network.archive', network.slug)
-                }
-                console.log("Leaving tribe: ", networkId)
-                if (!network.isAdmin(user._id)) {
-                    Meteor.call('networks.remove_upper', network.slug, user._id)    
                 } else {
-                    Meteor.call('networks.leave', networkId)        
+                    if (!network.isAdmin(user._id)) {
+                        Meteor.call('networks.remove_upper', network.slug, user._id)    
+                    } else {
+                        Meteor.call('networks.leave', networkId)        
+                    }    
                 }
             })
+
+            // Delete images
+            const imagesForDeletion = []
+
+            // Profile images
+            const profileImage = _.get(user, 'profile.image')
+            if (profileImage) {
+                imagesForDeletion.push(profileImage)
+            }
+
+            // Find any tiles associated with a user and delete them
+            // But keep a record for images that need to deleted
+            Tiles.find({upper_id: user.id}).forEach((tile) => {
+                if (tile.image_id) {
+                    imagesForDeletion.push(tile.image_id)
+                }
+                Meteor.call('tiles.remove', tile._id)
+            })
+
+            if (imagesForDeletion.length > 0) {
+                Meteor.call('images.remove_many', imagesForDeletion)
+            }
             
             // Empty out the profile
             fieldsForDeletion = {
