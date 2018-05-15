@@ -1,3 +1,5 @@
+import authorization from 'partup-lib';
+
 Template.app_profile.onCreated(function() {
     var template = this;
 
@@ -8,7 +10,7 @@ Template.app_profile.onCreated(function() {
             onReady: function() {
                 var user = Meteor.users.findOne(data.profileId);
 
-                if (!user || user.deactivatedAt) {
+                if (!user || user.deactivatedAt || !authorization.checkCanSeeProfile(Meteor.user(), user)) {
                     Router.pageNotFound('profile');
                 }
 
