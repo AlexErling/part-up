@@ -427,9 +427,8 @@ Meteor.methods({
             throw new Meteor.Error(401, 'unauthorized');
         }
 
-        console.log('deleting', user._id, user.profile.name)
-
         try {
+
             // Remove all partnerships & and become a supporter
             _.get(user, 'upperOf', []).forEach((partupId) => {
                 partup = Partups.findOne({_id: partupId})
@@ -437,7 +436,6 @@ Meteor.methods({
                 if (_.isEqual(partup.uppers, [user.id])) {
                     Meteor.call('partups.archive', partupId)
                 }
-                console.log("Unpartnering and stop supporting", partupId)
                 Meteor.call('partups.unpartner', partupId, function (err, res) {
                     Meteor.call('partups.supporters.remove', partupId)    
                 })
@@ -445,7 +443,6 @@ Meteor.methods({
             
             // Remove supporter from partup
             _.get(user, 'supporterOf', []).forEach((partupId) => {
-                console.log("Unsupporting", partupId)
                 Meteor.call('partups.supporters.remove', partupId)    
             })
 
@@ -453,12 +450,16 @@ Meteor.methods({
             _.get(user, 'networks', []).forEach((networkId) => {
                 network = Networks.findOne({_id: networkId})
                 // If the user is the only member, archive first
-                console.log("Leaving tribe: ", networkId)
-
                 if (_.isEqual(_.get(network, 'uppers', []), [user.id])) {
-                    Meteor.call('network.archive', network.slug)
+                    try {
+                        Meteor.call('networks.make_admin', 'EBnHxX2WYy6LicBPg')    
+
+                        Meteor.call('networks.remove_upper', network.slug, user._id)    
+                    } catch (e) {
+                        Meteor.call('network.archive', network.slug)    
+                    }
                 } else {
-                    if (!network.isAdmin(user._id)) {
+                    if (network.isAdmin(user._id)) {
                         Meteor.call('networks.remove_upper', network.slug, user._id)    
                     } else {
                         Meteor.call('networks.leave', networkId)        
@@ -514,13 +515,11 @@ Meteor.methods({
                 flags: []
             }});
 
-            // Meteor.users.update(user._id, {$set: {
-            //     deletedAt: new Date()
-            // }});
+            Meteor.users.update(user._id, {$set: {
+                deletedAt: new Date()
+            }});
 
             Event.emit('users.deleted', user._id);
-
-            console.log('deleted', user._id, user.profile.name)
 
             return {
                 _id: user._id
